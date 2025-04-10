@@ -16,6 +16,7 @@
   <script>
 let speed = 0;
 let squareSize = 40;
+let squareSpacing = 120; // Фиксированное расстояние между квадратами
 let maxDistance;
 let squares = [];
 let prevX, prevY;
@@ -30,23 +31,74 @@ let buttonWidth = 120;
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
+  
+  // Определяем, мобильное ли устройство
+  checkDeviceType();
+  
+  // Настраиваем размеры UI в зависимости от устройства и размера экрана
+  setupUI();
+  
+  // Пересчитываем максимальную дистанцию после определения размера квадрата
   maxDistance = sqrt(2 * squareSize * squareSize);
   canvasCenter = createVector(width/2, height/2);
   background(200);
   
-  // Определяем, мобильное ли устройство
-  isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || windowWidth < 600;
+  prevX = smoothX = width/2;
+  prevY = smoothY = height/2;
+}
+
+function checkDeviceType() {
+  // Определяем тип устройства
+  let mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  let smallScreen = windowWidth < 600;
   
-  // Настраиваем размеры элементов в зависимости от устройства
+  isMobile = mobile || smallScreen;
+}
+
+function setupUI() {
+  // Адаптируем размеры под устройство
   if (isMobile) {
-    buttonWidth = min(windowWidth - 20, 360); // В три раза больше для мобильных (было 120px)
-    squareSize = max(60, min(80, windowWidth / 7.5)); // В два раза больше (было 30-40px)
+    // Для небольших мобильных устройств
+    if (windowWidth < 400) {
+      buttonWidth = windowWidth - 20;
+      squareSize = 60;
+      squareSpacing = 100;
+    } 
+    // Для средних мобильных устройств
+    else if (windowWidth < 700) {
+      buttonWidth = 380;
+      squareSize = 70;
+      squareSpacing = 120;
+    } 
+    // Для планшетов и крупных телефонов
+    else {
+      buttonWidth = 480;
+      squareSize = 80;
+      squareSpacing = 140;
+    }
+    
     parallaxDepth = 3; // Меньшая глубина для мобильных
+  } else {
+    // Для настольных компьютеров
+    if (windowWidth > 1600) {
+      buttonWidth = 180;
+      squareSize = 50;
+      squareSpacing = 150;
+    } else {
+      buttonWidth = 120;
+      squareSize = 40;
+      squareSpacing = 120;
+    }
+    
+    parallaxDepth = 4;
   }
   
-  // Создаем элементы управления
-  let buttonStyle = `padding:${isMobile ? "18px" : "12px"}; font-family:monospace; background:white; border:1px solid black; width:${buttonWidth}px; text-align:left; border-radius:0; font-size:${isMobile ? "24px" : "14px"};`;
-  let selectStyle = `padding:${isMobile ? "18px" : "12px"}; padding-right:30px; font-family:monospace; background:white; border:1px solid black; width:${buttonWidth}px; text-align:left; appearance:menulist; -webkit-appearance:menulist; border-radius:0; font-size:${isMobile ? "24px" : "14px"};`;
+  // Удаляем старые элементы UI если они уже созданы
+  removeElements();
+  
+  // Создаем новые элементы управления с учетом размера устройства
+  let buttonStyle = `padding:${isMobile ? "20px" : "12px"}; font-family:monospace; background:white; border:1px solid black; width:${buttonWidth}px; text-align:left; border-radius:0; font-size:${isMobile ? "24px" : "14px"};`;
+  let selectStyle = `padding:${isMobile ? "20px" : "12px"}; padding-right:30px; font-family:monospace; background:white; border:1px solid black; width:${buttonWidth}px; text-align:left; appearance:menulist; -webkit-appearance:menulist; border-radius:0; font-size:${isMobile ? "24px" : "14px"};`;
   
   // Выпадающий список для выбора режима
   modeSelect = createSelect();
@@ -55,19 +107,16 @@ function setup() {
   modeSelect.option('60', '60');
   modeSelect.option('90', '90');
   modeSelect.option('center', 'center');
-  modeSelect.selected('30');
+  modeSelect.selected(angleMode);
   modeSelect.changed(updateMode);
   modeSelect.style(selectStyle);
   
   // Высота элементов для расчета позиций (без отступов между кнопками)
-  let elemHeight = isMobile ? 60 : 40; // Примерная высота элемента с учетом padding
+  let elemHeight = isMobile ? 64 : 40; // Примерная высота элемента с учетом padding
   
   // Кнопки под списком без отступов
   createButton('restart').position(10, 10 + elemHeight).mousePressed(() => squares = []).style(buttonStyle);
   createButton('save').position(10, 10 + elemHeight * 2).mousePressed(saveImage).style(buttonStyle);
-  
-  prevX = smoothX = width/2;
-  prevY = smoothY = height/2;
 }
 
 function updateMode() {
@@ -96,36 +145,40 @@ function draw() {
   
   // Рисуем сохраненные фигуры - сначала параллелепипеды, потом квадраты
   for (let s of squares) {
+    // Используем размер квадрата из объекта (если есть) или текущий размер
+    let size = s.size || squareSize;
+    let spacing = s.spacing || squareSpacing;
+    
     if (s.mode === "center") {
-      drawCenterParallelepiped(s.x1, s.y, s.offset1);
-      drawCenterParallelepiped(s.x2, s.y, s.offset2);
+      drawCenterParallelepiped(s.x1, s.y, s.offset1, size);
+      drawCenterParallelepiped(s.x2, s.y, s.offset2, size);
     } else {
-      drawAngleParallelepiped(s.x1, s.y, s.offset1, s.mode);
-      drawAngleParallelepiped(s.x2, s.y, s.offset2, s.mode);
+      drawAngleParallelepiped(s.x1, s.y, s.offset1, s.mode, size);
+      drawAngleParallelepiped(s.x2, s.y, s.offset2, s.mode, size);
     }
   }
   
   fill(255, 150, 180);
   noStroke();
   for (let s of squares) {
-    rect(s.x1, s.y, squareSize, squareSize);
-    rect(s.x2, s.y, squareSize, squareSize);
+    let size = s.size || squareSize;
+    rect(s.x1, s.y, size, size);
+    rect(s.x2, s.y, size, size);
   }
   
   // Рисуем предпросмотр, если мышь нажата
   if (mouseIsPressed && !isOverUI()) {
-    let distance = constrain(speed, 0, 1) * maxDistance;
-    let x1 = smoothX - squareSize/2 - distance/2;
-    let x2 = smoothX - squareSize/2 + distance/2;
+    let x1 = smoothX - squareSize/2 - squareSpacing/2;
+    let x2 = smoothX - squareSize/2 + squareSpacing/2;
     let y = smoothY - squareSize/2;
     
     // Рисуем превью параллелепипедов
     if (angleMode === "center") {
-      drawCenterParallelepiped(x1, y, 0.45);
-      drawCenterParallelepiped(x2, y, 0.45);
+      drawCenterParallelepiped(x1, y, 0.45, squareSize);
+      drawCenterParallelepiped(x2, y, 0.45, squareSize);
     } else {
-      drawAngleParallelepiped(x1, y, 0.45, angleMode);
-      drawAngleParallelepiped(x2, y, 0.45, angleMode);
+      drawAngleParallelepiped(x1, y, 0.45, angleMode, squareSize);
+      drawAngleParallelepiped(x2, y, 0.45, angleMode, squareSize);
     }
     
     // Рисуем превью квадратов
@@ -149,16 +202,16 @@ function updatePosition() {
     // Проверяем условия для создания новых квадратов
     let now = millis();
     if (now - lastDrawTime > 50 && d > 20) {
-      let distance = constrain(speed, 0, 1) * maxDistance;
-      
-      // Добавляем новую пару квадратов
+      // Добавляем новую пару квадратов с фиксированным расстоянием
       squares.push({
-        x1: smoothX - squareSize/2 - distance/2,
-        x2: smoothX - squareSize/2 + distance/2,
+        x1: smoothX - squareSize/2 - squareSpacing/2,
+        x2: smoothX - squareSize/2 + squareSpacing/2,
         y: smoothY - squareSize/2,
         offset1: random(0.3, 0.6),
         offset2: random(0.3, 0.6),
-        mode: angleMode
+        mode: angleMode,
+        size: squareSize, // Сохраняем текущий размер квадрата
+        spacing: squareSpacing // Сохраняем текущее расстояние
       });
       
       // Обновляем время и положение
@@ -171,11 +224,11 @@ function updatePosition() {
   }
 }
 
-function drawAngleParallelepiped(x, y, offsetRatio, angleMode) {
+function drawAngleParallelepiped(x, y, offsetRatio, angleMode, size = squareSize) {
   x = round(x);
   y = round(y);
   
-  let offset = squareSize * offsetRatio;
+  let offset = size * offsetRatio;
   let angle, xOffset, yOffset;
   
   // Устанавливаем угол в зависимости от выбранного режима
@@ -187,15 +240,15 @@ function drawAngleParallelepiped(x, y, offsetRatio, angleMode) {
     angle = radians(90);
   }
   
-  xOffset = cos(angle) * squareSize * parallaxDepth;
-  yOffset = sin(angle) * squareSize * parallaxDepth;
+  xOffset = cos(angle) * size * parallaxDepth;
+  yOffset = sin(angle) * size * parallaxDepth;
   
   // Точки квадрата
   let points = [
     createVector(x, y),
-    createVector(x + squareSize, y),
-    createVector(x + squareSize, y + squareSize),
-    createVector(x, y + squareSize)
+    createVector(x + size, y),
+    createVector(x + size, y + size),
+    createVector(x, y + size)
   ];
   
   // Точки основания параллелепипеда
@@ -225,7 +278,7 @@ function drawAngleParallelepiped(x, y, offsetRatio, angleMode) {
   
   // Видимые ребра
   stroke(0);
-  strokeWeight(1);
+  strokeWeight(isMobile ? 2 : 1); // Увеличиваем толщину линий для мобильной версии
   
   // Выбираем видимые ребра в зависимости от угла
   if (angleMode === "30" || angleMode === "60") {
@@ -238,12 +291,12 @@ function drawAngleParallelepiped(x, y, offsetRatio, angleMode) {
   }
 }
 
-function drawCenterParallelepiped(x, y, offsetRatio) {
+function drawCenterParallelepiped(x, y, offsetRatio, size = squareSize) {
   x = round(x);
   y = round(y);
   
   // Центр квадрата
-  let squareCenter = createVector(x + squareSize/2, y + squareSize/2);
+  let squareCenter = createVector(x + size/2, y + size/2);
   
   // Направление к центру холста
   let direction = p5.Vector.sub(canvasCenter, squareCenter).normalize();
@@ -251,13 +304,13 @@ function drawCenterParallelepiped(x, y, offsetRatio) {
   // Точки квадрата
   let points = [
     createVector(x, y),
-    createVector(x + squareSize, y),
-    createVector(x + squareSize, y + squareSize),
-    createVector(x, y + squareSize)
+    createVector(x + size, y),
+    createVector(x + size, y + size),
+    createVector(x, y + size)
   ];
   
   // Точки основания параллелепипеда
-  let offset = squareSize * offsetRatio;
+  let offset = size * offsetRatio;
   let base = points.map(p => createVector(p.x + offset, p.y + offset));
   
   // Центр основания
@@ -267,7 +320,7 @@ function drawCenterParallelepiped(x, y, offsetRatio) {
   );
   
   // Конечная точка в направлении центра
-  let depthVector = p5.Vector.mult(direction, squareSize * parallaxDepth);
+  let depthVector = p5.Vector.mult(direction, size * parallaxDepth);
   
   // Точки дальней грани
   let far = base.map(p => createVector(p.x + depthVector.x, p.y + depthVector.y));
@@ -293,7 +346,7 @@ function drawCenterParallelepiped(x, y, offsetRatio) {
   
   // Определяем видимые ребра по направлению к центру
   stroke(0);
-  strokeWeight(1);
+  strokeWeight(isMobile ? 2 : 1); // Увеличиваем толщину линий для мобильной версии
   
   let dx = direction.x;
   let dy = direction.y;
@@ -314,7 +367,7 @@ function drawCenterParallelepiped(x, y, offsetRatio) {
 }
 
 function isOverUI() {
-  let uiHeight = isMobile ? 60 * 3 + 10 : 40 * 3 + 10; // Высота всех элементов UI
+  let uiHeight = isMobile ? 64 * 3 + 10 : 40 * 3 + 10; // Высота всех элементов UI
   return mouseY < uiHeight && mouseX < (buttonWidth + 20);
 }
 
@@ -332,16 +385,14 @@ function windowResized() {
   
   // Перепроверяем, не изменился ли размер экрана существенно
   let wasMobile = isMobile;
-  isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || windowWidth < 600;
+  checkDeviceType();
   
-  // Если сменился тип устройства, перезагружаем страницу для корректной адаптации
-  if (wasMobile !== isMobile) {
-    location.reload();
-  }
-  
-  // Обновляем ширину кнопок если нужно
-  if (isMobile) {
-    buttonWidth = min(windowWidth - 20, 360);
+  // Если размер экрана существенно изменился, обновляем UI
+  if (wasMobile !== isMobile || 
+      (isMobile && abs(windowWidth - buttonWidth - 20) > 100) ||
+      (!isMobile && windowWidth > 1600 && buttonWidth < 150) ||
+      (!isMobile && windowWidth <= 1600 && buttonWidth > 150)) {
+    setupUI();
   }
 }
 
@@ -357,7 +408,6 @@ function touchStarted() {
 function touchMoved() {
   return false; // предотвращает прокрутку страницы на мобильных устройствах
 }
-
 
   </script>
 </body>
