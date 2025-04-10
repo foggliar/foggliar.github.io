@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Parallax Drawing</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+  <script>
+    let speed = 0;
+let squareSize = 40;
+let maxDistance;
+let squares = [];
+let prevX, prevY;
+let smoothX, smoothY;
+let lastDrawTime = 0;
+let canvasCenter;
+let angleMode = "30"; // Значение по умолчанию: "30", "60", "90", "center"
+let parallaxDepth = 4;
+let modeSelect;
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  maxDistance = sqrt(2 * squareSize * squareSize);
+  canvasCenter = createVector(width/2, height/2);
+  background(200);
+  
+  // Создаем элементы управления
+  let buttonStyle = 'padding:10px; font-family:monospace; background:white; border:1px solid black; width:120px; text-align:left;';
+  let selectStyle = 'padding:10px; padding-right:30px; font-family:monospace; background:white; border:1px solid black; width:120px; text-align:left; appearance:menulist; -webkit-appearance:menulist;';
+  
+  // Выпадающий список для выбора режима
+  modeSelect = createSelect();
+  modeSelect.position(10, 10);
+  modeSelect.option('30', '30');
+  modeSelect.option('60', '60');
+  modeSelect.option('90', '90');
+  modeSelect.option('center', 'center');
+  modeSelect.selected('30');
+  modeSelect.changed(updateMode);
+  modeSelect.style(selectStyle);
+  
+  // Кнопки под списком
+  createButton('restart').position(10, 50).mousePressed(() => squares = []).style(buttonStyle);
+  createButton('save').position(10, 90).mousePressed(saveImage).style(buttonStyle);
+  
+  prevX = smoothX = width/2;
+  prevY = smoothY = height/2;
+}
+
+function updateMode() {
+  angleMode = modeSelect.value();
+}
+
+function saveImage() {
+  // Скрываем элементы управления перед сохранением
+  let buttons = selectAll('button');
+  modeSelect.style('display', 'none');
+  buttons.forEach(b => b.style('display', 'none'));
+  
+  setTimeout(() => {
+    saveCanvas('parallax_drawing', 'jpg');
+    // Показываем элементы управления после сохранения
+    modeSelect.style('display', 'block');
+    buttons.forEach(b => b.style('display', 'block'));
+  }, 100);
+}
+
+function draw() {
+  background(200);
+  updatePosition();
+  
+  // Рисуем сохраненные фигуры - сначала параллелепипеды, потом квадраты
+  for (let s of squares) {
+    if (s.mode === "center") {
+      drawCenterParallelepiped(s.x1, s.y, s.offset1);
+      drawCenterParallelepiped(s.x2, s.y, s.offset2);
+    } else {
+      drawAngleParallelepiped(s.x1, s.y, s.offset1, s.mode);
+      drawAngleParallelepiped(s.x2, s.y, s.offset2, s.mode);
+    }
+  }
+  
+  fill(255, 150, 180);
+  noStroke();
+  for (let s of squares) {
+    rect(s.x1, s.y, squareSize, squareSize);
+    rect(s.x2, s.y, squareSize, squareSize);
+  }
+  
+  // Рисуем предпросмотр, если мышь нажата
+  if (mouseIsPressed && !isOverUI()) {
+    let distance = constrain(speed, 0, 1) * maxDistance;
+    let x1 = smoothX - squareSize/2 - distance/2;
+    let x2 = smoothX - squareSize/2 + distance/2;
+    let y = smoothY - squareSize/2;
+    
+    // Рисуем превью параллелепипедов
+    if (angleMode === "center") {
+      drawCenterParallelepiped(x1, y, 0.45);
+      drawCenterParallelepiped(x2, y, 0.45);
+    } else {
+      drawAngleParallelepiped(x1, y, 0.45, angleMode);
+      drawAngleParallelepiped(x2, y, 0.45, angleMode);
+    }
+    
+    // Рисуем превью квадратов
+    fill(255, 150, 180);
+    noStroke();
+    rect(x1, y, squareSize, squareSize);
+    rect(x2, y, squareSize, squareSize);
+  }
+}
+
+function updatePosition() {
+  // Сглаживаем положение мыши
+  smoothX = lerp(smoothX, mouseX, 0.3);
+  smoothY = lerp(smoothY, mouseY, 0.3);
+  
+  if (mouseIsPressed && !isOverUI()) {
+    // Рассчитываем скорость движения
+    let d = dist(smoothX, smoothY, prevX, prevY);
+    speed = constrain(d/20, 0, 1);
+    
+    // Проверяем условия для создания новых квадратов
+    let now = millis();
+    if (now - lastDrawTime > 50 && d > 20) {
+      let distance = constrain(speed, 0, 1) * maxDistance;
+      
+      // Добавляем новую пару квадратов
+      squares.push({
+        x1: smoothX - squareSize/2 - distance/2,
+        x2: smoothX - squareSize/2 + distance/2,
+        y: smoothY - squareSize/2,
+        offset1: random(0.3, 0.6),
+        offset2: random(0.3, 0.6),
+        mode: angleMode
+      });
+      
+      // Обновляем время и положение
+      lastDrawTime = now;
+      prevX = smoothX;
+      prevY = smoothY;
+    }
+  } else {
+    speed *= 0.9; // Постепенное снижение скорости
+  }
+}
+
+function drawAngleParallelepiped(x, y, offsetRatio, angleMode) {
+  x = round(x);
+  y = round(y);
+  
+  let offset = squareSize * offsetRatio;
+  let angle, xOffset, yOffset;
+  
+  // Устанавливаем угол в зависимости от выбранного режима
+  if (angleMode === "30") {
+    angle = radians(30);
+  } else if (angleMode === "60") {
+    angle = radians(60);
+  } else if (angleMode === "90") {
+    angle = radians(90);
+  }
+  
+  xOffset = cos(angle) * squareSize * parallaxDepth;
+  yOffset = sin(angle) * squareSize * parallaxDepth;
+  
+  // Точки квадрата
+  let points = [
+    createVector(x, y),
+    createVector(x + squareSize, y),
+    createVector(x + squareSize, y + squareSize),
+    createVector(x, y + squareSize)
+  ];
+  
+  // Точки основания параллелепипеда
+  let base = points.map(p => createVector(p.x + offset, p.y + offset));
+  
+  // Точки дальней грани
+  let far = base.map(p => createVector(p.x + xOffset, p.y - yOffset));
+  
+  // Рисуем грани
+  fill(255);
+  noStroke();
+  
+  // Дальняя грань
+  beginShape();
+  for (let p of far) vertex(p.x, p.y);
+  endShape(CLOSE);
+  
+  // Боковые грани
+  for (let i = 0; i < 4; i++) {
+    beginShape();
+    vertex(base[i].x, base[i].y);
+    vertex(base[(i+1)%4].x, base[(i+1)%4].y);
+    vertex(far[(i+1)%4].x, far[(i+1)%4].y);
+    vertex(far[i].x, far[i].y);
+    endShape(CLOSE);
+  }
+  
+  // Видимые ребра
+  stroke(0);
+  strokeWeight(1);
+  
+  // Выбираем видимые ребра в зависимости от угла
+  if (angleMode === "30" || angleMode === "60") {
+    line(base[1].x, base[1].y, far[1].x, far[1].y); // Верхнее правое ребро
+    line(base[2].x, base[2].y, far[2].x, far[2].y); // Нижнее правое ребро
+  } else if (angleMode === "90") {
+    line(base[1].x, base[1].y, far[1].x, far[1].y); // Верхнее правое ребро
+    line(base[2].x, base[2].y, far[2].x, far[2].y); // Нижнее правое ребро
+    line(base[3].x, base[3].y, far[3].x, far[3].y); // Нижнее левое ребро
+  }
+}
+
+function drawCenterParallelepiped(x, y, offsetRatio) {
+  x = round(x);
+  y = round(y);
+  
+  // Центр квадрата
+  let squareCenter = createVector(x + squareSize/2, y + squareSize/2);
+  
+  // Направление к центру холста
+  let direction = p5.Vector.sub(canvasCenter, squareCenter).normalize();
+  
+  // Точки квадрата
+  let points = [
+    createVector(x, y),
+    createVector(x + squareSize, y),
+    createVector(x + squareSize, y + squareSize),
+    createVector(x, y + squareSize)
+  ];
+  
+  // Точки основания параллелепипеда
+  let offset = squareSize * offsetRatio;
+  let base = points.map(p => createVector(p.x + offset, p.y + offset));
+  
+  // Центр основания
+  let baseCenter = createVector(
+    (base[0].x + base[1].x + base[2].x + base[3].x) / 4,
+    (base[0].y + base[1].y + base[2].y + base[3].y) / 4
+  );
+  
+  // Конечная точка в направлении центра
+  let depthVector = p5.Vector.mult(direction, squareSize * parallaxDepth);
+  
+  // Точки дальней грани
+  let far = base.map(p => createVector(p.x + depthVector.x, p.y + depthVector.y));
+  
+  // Рисуем грани
+  fill(255);
+  noStroke();
+  
+  // Дальняя грань
+  beginShape();
+  for (let p of far) vertex(p.x, p.y);
+  endShape(CLOSE);
+  
+  // Боковые грани
+  for (let i = 0; i < 4; i++) {
+    beginShape();
+    vertex(base[i].x, base[i].y);
+    vertex(base[(i+1)%4].x, base[(i+1)%4].y);
+    vertex(far[(i+1)%4].x, far[(i+1)%4].y);
+    vertex(far[i].x, far[i].y);
+    endShape(CLOSE);
+  }
+  
+  // Определяем видимые ребра по направлению к центру
+  stroke(0);
+  strokeWeight(1);
+  
+  let dx = direction.x;
+  let dy = direction.y;
+  
+  if (dx >= 0 && dy >= 0) { // 4-й квадрант
+    line(base[1].x, base[1].y, far[1].x, far[1].y);
+    line(base[2].x, base[2].y, far[2].x, far[2].y);
+  } else if (dx >= 0 && dy < 0) { // 1-й квадрант
+    line(base[0].x, base[0].y, far[0].x, far[0].y);
+    line(base[1].x, base[1].y, far[1].x, far[1].y);
+  } else if (dx < 0 && dy >= 0) { // 3-й квадрант
+    line(base[2].x, base[2].y, far[2].x, far[2].y);
+    line(base[3].x, base[3].y, far[3].x, far[3].y);
+  } else { // 2-й квадрант
+    line(base[0].x, base[0].y, far[0].x, far[0].y);
+    line(base[3].x, base[3].y, far[3].x, far[3].y);
+  }
+}
+
+function isOverUI() {
+  return mouseY < 130 && mouseX < 140;
+}
+
+function mousePressed() {
+  if (isOverUI()) return;
+  
+  prevX = smoothX = mouseX;
+  prevY = smoothY = mouseY;
+  lastDrawTime = millis();
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+  canvasCenter = createVector(width/2, height/2);
+}
+
+  </script>
+</body>
+</html>
