@@ -14,7 +14,7 @@
 </head>
 <body>
   <script>
-    let speed = 0;
+   let speed = 0;
 let squareSize = 40;
 let maxDistance;
 let squares = [];
@@ -25,6 +25,8 @@ let canvasCenter;
 let angleMode = "30"; // Значение по умолчанию: "30", "60", "90", "center"
 let parallaxDepth = 4;
 let modeSelect;
+let isMobile = false;
+let buttonWidth = 120;
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
@@ -32,9 +34,19 @@ function setup() {
   canvasCenter = createVector(width/2, height/2);
   background(200);
   
+  // Определяем, мобильное ли устройство
+  isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || windowWidth < 600;
+  
+  // Настраиваем размеры элементов в зависимости от устройства
+  if (isMobile) {
+    buttonWidth = min(windowWidth - 20, 200);
+    squareSize = max(30, min(40, windowWidth / 15)); // Адаптивный размер квадратов
+    parallaxDepth = 3; // Меньшая глубина для мобильных
+  }
+  
   // Создаем элементы управления
-  let buttonStyle = 'padding:10px; font-family:monospace; background:white; border:1px solid black; width:120px; text-align:left; border-radius:0;';
-  let selectStyle = 'padding:10px; padding-right:30px; font-family:monospace; background:white; border:1px solid black; width:120px; text-align:left; appearance:menulist; -webkit-appearance:menulist; border-radius:0;';
+  let buttonStyle = `padding:12px; font-family:monospace; background:white; border:1px solid black; width:${buttonWidth}px; text-align:left; border-radius:0; font-size:${isMobile ? "16px" : "14px"};`;
+  let selectStyle = `padding:12px; padding-right:30px; font-family:monospace; background:white; border:1px solid black; width:${buttonWidth}px; text-align:left; appearance:menulist; -webkit-appearance:menulist; border-radius:0; font-size:${isMobile ? "16px" : "14px"};`;
   
   // Выпадающий список для выбора режима
   modeSelect = createSelect();
@@ -74,7 +86,9 @@ function saveImage() {
 }
 
 function draw() {
+  // Гарантируем правильное покрытие всего холста
   background(200);
+  
   updatePosition();
   
   // Рисуем сохраненные фигуры - сначала параллелепипеды, потом квадраты
@@ -297,7 +311,7 @@ function drawCenterParallelepiped(x, y, offsetRatio) {
 }
 
 function isOverUI() {
-  return mouseY < 130 && mouseX < 140;
+  return mouseY < (isMobile ? 150 : 130) && mouseX < (buttonWidth + 20);
 }
 
 function mousePressed() {
@@ -311,6 +325,33 @@ function mousePressed() {
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
   canvasCenter = createVector(width/2, height/2);
+  
+  // Перепроверяем, не изменился ли размер экрана существенно
+  let wasMobile = isMobile;
+  isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || windowWidth < 600;
+  
+  // Если сменился тип устройства, перезагружаем страницу для корректной адаптации
+  if (wasMobile !== isMobile) {
+    location.reload();
+  }
+  
+  // Обновляем ширину кнопок если нужно
+  if (isMobile) {
+    buttonWidth = min(windowWidth - 20, 200);
+  }
+}
+
+function touchStarted() {
+  if (!isOverUI()) {
+    prevX = smoothX = mouseX;
+    prevY = smoothY = mouseY;
+    lastDrawTime = millis();
+    return false; // предотвращает стандартное поведение браузера
+  }
+}
+
+function touchMoved() {
+  return false; // предотвращает прокрутку страницы на мобильных устройствах
 }
 
   </script>
