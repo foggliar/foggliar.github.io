@@ -14,7 +14,7 @@
 </head>
 <body>
   <script>
-   let speed = 0;
+let speed = 0;
 let squareSize = 40;
 let maxDistance;
 let squares = [];
@@ -39,14 +39,14 @@ function setup() {
   
   // Настраиваем размеры элементов в зависимости от устройства
   if (isMobile) {
-    buttonWidth = min(windowWidth - 20, 200);
-    squareSize = max(30, min(40, windowWidth / 15)); // Адаптивный размер квадратов
+    buttonWidth = min(windowWidth - 20, 360); // В три раза больше для мобильных (было 120px)
+    squareSize = max(60, min(80, windowWidth / 7.5)); // В два раза больше (было 30-40px)
     parallaxDepth = 3; // Меньшая глубина для мобильных
   }
   
   // Создаем элементы управления
-  let buttonStyle = `padding:12px; font-family:monospace; background:white; border:1px solid black; width:${buttonWidth}px; text-align:left; border-radius:0; font-size:${isMobile ? "16px" : "14px"};`;
-  let selectStyle = `padding:12px; padding-right:30px; font-family:monospace; background:white; border:1px solid black; width:${buttonWidth}px; text-align:left; appearance:menulist; -webkit-appearance:menulist; border-radius:0; font-size:${isMobile ? "16px" : "14px"};`;
+  let buttonStyle = `padding:${isMobile ? "18px" : "12px"}; font-family:monospace; background:white; border:1px solid black; width:${buttonWidth}px; text-align:left; border-radius:0; font-size:${isMobile ? "24px" : "14px"};`;
+  let selectStyle = `padding:${isMobile ? "18px" : "12px"}; padding-right:30px; font-family:monospace; background:white; border:1px solid black; width:${buttonWidth}px; text-align:left; appearance:menulist; -webkit-appearance:menulist; border-radius:0; font-size:${isMobile ? "24px" : "14px"};`;
   
   // Выпадающий список для выбора режима
   modeSelect = createSelect();
@@ -59,9 +59,12 @@ function setup() {
   modeSelect.changed(updateMode);
   modeSelect.style(selectStyle);
   
-  // Кнопки под списком
-  createButton('restart').position(10, 50).mousePressed(() => squares = []).style(buttonStyle);
-  createButton('save').position(10, 90).mousePressed(saveImage).style(buttonStyle);
+  // Высота элементов для расчета позиций (без отступов между кнопками)
+  let elemHeight = isMobile ? 60 : 40; // Примерная высота элемента с учетом padding
+  
+  // Кнопки под списком без отступов
+  createButton('restart').position(10, 10 + elemHeight).mousePressed(() => squares = []).style(buttonStyle);
+  createButton('save').position(10, 10 + elemHeight * 2).mousePressed(saveImage).style(buttonStyle);
   
   prevX = smoothX = width/2;
   prevY = smoothY = height/2;
@@ -311,7 +314,8 @@ function drawCenterParallelepiped(x, y, offsetRatio) {
 }
 
 function isOverUI() {
-  return mouseY < (isMobile ? 150 : 130) && mouseX < (buttonWidth + 20);
+  let uiHeight = isMobile ? 60 * 3 + 10 : 40 * 3 + 10; // Высота всех элементов UI
+  return mouseY < uiHeight && mouseX < (buttonWidth + 20);
 }
 
 function mousePressed() {
@@ -337,7 +341,7 @@ function windowResized() {
   
   // Обновляем ширину кнопок если нужно
   if (isMobile) {
-    buttonWidth = min(windowWidth - 20, 200);
+    buttonWidth = min(windowWidth - 20, 360);
   }
 }
 
@@ -353,6 +357,7 @@ function touchStarted() {
 function touchMoved() {
   return false; // предотвращает прокрутку страницы на мобильных устройствах
 }
+
 
   </script>
 </body>
